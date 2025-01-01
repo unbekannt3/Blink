@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Blink
+Comment=A Jellyfin Client
+Type=Application
+Exec=blink
+Icon=com.github.prayag17.blink
+Categories=AudioVideo;Video;Player;TV;
+Keywords=Jellyfin;Media;Stream;

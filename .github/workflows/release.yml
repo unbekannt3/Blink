@@ -8,7 +8,25 @@ on:
      workflow_dispatch:
 
 jobs:
-     release:
+     create_release:
+          runs-on: ubuntu-latest
+          outputs:
+            upload_url: ${{ steps.create_release.outputs.upload_url }}
+            release_id: ${{ steps.create_release.outputs.id }}
+          steps:
+            - name: Create Release
+              id: create_release
+              uses: actions/create-release@v1
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                tag_name: ${{ github.ref_name }}
+                release_name: "Blink v${{ github.ref_name }}"
+                draft: true
+                prerelease: false
+
+     build:
+          needs: create_release
           strategy:
                fail-fast: false
                matrix:
@@ -76,9 +94,69 @@ jobs:
                       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
                       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
                  with:
+                      releaseId: ${{ needs.create_release.outputs.release_id }}
                       tagName: ${{ github.ref_name }} # This only works if your workflow triggers on new tags.
                       releaseName: "App Name v__VERSION__" # tauri-action replaces \_\_VERSION\_\_ with the app version.
                       releaseBody: "See the assets to download and install this version."
                       releaseDraft: true
                       prerelease: false
                       args: ${{ matrix.platform == 'macos-latest' && '--target universal-apple-darwin' || '' }}
+
+               # AppImage Generation (Ubuntu only)
+               - name: Generate AppImage
+                 if: matrix.platform == 'ubuntu-22.04'
+                 run: |
+                    sudo apt-get install -y libfuse2
+                    wget -O appimage-builder.AppImage https://github.com/AppImageCrafters/appimage-builder/releases/download/v1.1.0/appimage-builder-1.1.0-x86_64.AppImage
+                    chmod +x appimage-builder.AppImage
+                    mkdir -p AppDir
+                    cp -r src-tauri/target/release/bundle/deb/data/usr/* AppDir/
+                    ./appimage-builder.AppImage --recipe appimage-builder.yml
+
+               - name: Upload AppImage
+                 if: matrix.platform == 'ubuntu-22.04'
+                 uses: actions/upload-release-asset@v1
+                 env:
+                      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                 
+                 with:
+                      upload_url: ${{ needs.create_release.outputs.upload_url }}
+                      asset_path: ./Blink*.AppImage
+                      asset_name: Blink-${{ github.ref_name }}-x86_64.AppImage
+                      asset_content_type: application/x-executable
+
+               # Flatpak Generation (Ubuntu only)
+               - name: Install Flatpak dependencies
+                 if: matrix.platform == 'ubuntu-22.04'
+                 run: |
+                      sudo apt-get install -y flatpak flatpak-builder
+                      flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+                      flatpak install -y flathub org.freedesktop.Platform//23.08 org.freedesktop.Sdk//23.08
+
+               - name: Update Metainfo
+                 if: matrix.platform == 'ubuntu-22.04'
+                 run: |
+                      # Get version without 'v' prefix
+                      VERSION=${GITHUB_REF_NAME#v}
+                      # Get current date in YYYY-MM-DD format
+                      DATE=$(date +%Y-%m-%d)
+                      # Update the release info in flatpak metainfo.xml
+                      sed -i "s/<release version=\".*\" date=\".*\"\/>/<release version=\"$VERSION\" date=\"$DATE\"\/>/" .flatpak/com.github.prayag17.blink.metainfo.xml
+
+               - name: Build Flatpak
+                 if: matrix.platform == 'ubuntu-22.04'
+                 run: |
+                      flatpak-builder --repo=repo --force-clean build-dir .flatpak/com.github.prayag17.blink.yml
+                      flatpak build-bundle repo blink.flatpak com.github.prayag17.blink
+
+               - name: Upload Flatpak
+                 if: matrix.platform == 'ubuntu-22.04'
+                 uses: actions/upload-release-asset@v1
+                 env:
+                      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                 
+                 with:
+                      upload_url: ${{ needs.create_release.outputs.upload_url }}
+                      asset_path: ./blink.flatpak
+                      asset_name: Blink-${{ github.ref_name }}.flatpak
+                      asset_content_type: application/x-flatpak

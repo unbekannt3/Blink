@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.prayag17.blink</id>
+  <name>Blink</name>
+  <summary>A Jellyfin Client</summary>
+  <description>
+    <p>
+      Blink is a modern Jellyfin client built with Tauri.
+    </p>
+  </description>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+  </categories>
+  <url type="homepage">https://github.com/prayag17/Blink</url>
+  <url type="bugtracker">https://github.com/prayag17/Blink/issues</url>
+  <releases>
+    <release version="0.1.0" date="2024-01-01"/>
+  </releases>
+  <content_rating type="oars-1.1"/>
+</component>

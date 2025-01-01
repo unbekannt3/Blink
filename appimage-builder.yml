@@ -1,0 +1,51 @@
+version: 1
+script:
+  - rm -rf AppDir || true
+  - cp -r src-tauri/target/release/bundle/deb/data/usr/* AppDir/
+
+AppDir:
+  path: AppDir
+  app_info:
+    id: com.github.prayag17.blink
+    name: Blink
+    icon: AppDir/share/icons/hicolor/128x128/apps/blink
+    version: ${VERSION}
+    exec: usr/bin/blink
+    exec_args: $@
+
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse'
+        key_url: 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C'
+
+    include:
+      - libgtk-3-0
+      - libwebkit2gtk-4.1-0
+      - librsvg2-2
+    exclude: []
+
+  files:
+    include: []
+    exclude:
+      - usr/share/man
+      - usr/share/doc
+
+  test:
+    fedora-33:
+      image: appimagecrafters/tests-env:fedora-33
+      command: ./AppRun
+    debian-stable:
+      image: appimagecrafters/tests-env:debian-stable
+      command: ./AppRun
+    archlinux-latest:
+      image: appimagecrafters/tests-env:archlinux-latest
+      command: ./AppRun
+    ubuntu-xenial:
+      image: appimagecrafters/tests-env:ubuntu-xenial
+      command: ./AppRun
+
+AppImage:
+  arch: x86_64
+  update-information: None
+  sign-key: None
